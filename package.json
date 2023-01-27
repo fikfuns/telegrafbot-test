@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "axios": "^1.2.2",
     "clipboard-js": "^0.3.6",
     "cron": "^2.1.0",
     "node-cron": "^3.0.2",

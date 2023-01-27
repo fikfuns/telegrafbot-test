@@ -1,0 +1,7 @@
+chat id
+
+daily schedule = -1001584927238
+
+testing facility = -797033585
+
+bot personal = 2106116223

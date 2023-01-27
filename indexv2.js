@@ -1,143 +1,104 @@
-const { Telegraf, Markup } = require('telegraf');
+const { Telegraf, Markup, Extra } = require('telegraf');
 const cron = require('cron');
-const clipboard = require('clipboard-js');
-const bot = new Telegraf("5711664450:AAG-MDmU-j65izOUlez9gKZZMbx_c7MlQ7E");
+const axios = require('axios');
+const fs = require('fs');
+const bot = new Telegraf("5806000626:AAGj4aw-H6tZYFYWLE1cundRLbOkNXtbCmw");
+
+const scheduleGroup = '-1001584927238';
+const testGroup = '-797033585';
+const mainGroup = ''
 
 
-bot.start((ctx) => ctx.reply('Started!'))
-
-
-// username
-bot.command('username', async (ctx) => {
-    console.log(ctx);
-    let botName = ctx.botInfo.username;
-    await ctx.reply(`I am @${botName}`);
-})
-
-// Copy button
-
-// Get user id
-bot.command('greet', async (ctx) => {
-    const firstName = ctx.from.first_name;
-    const username = ctx.from.username;
-
-    await ctx.reply(`Hello @${username}! You are also known as ${firstName}!`);
-})
-
-// Schedule command test
-
-bot.command('schedule', async (ctx) => {
-    // const time = '9:30 AM';
-    // const date = new Date(`${new Date().toDateString()} ${time}`);
-    // const milliseconds = date.getTime() - Date.now();
+// 30 9 * * 1-5 ===== mon-fri, 9:30am
+// * * * * * every 1 minute
+// */5 * * * * * every 5 sec
+const job = new cron.CronJob('30 9 * * 1-5', async function() {
     const now = Date.now();
     const currentDate = new Date(now);
-    const dateString = currentDate.toLocaleDateString('en-US', {
+    const dateString = currentDate.toLocaleDateString('en-GB', {
         day: '2-digit',
         month: '2-digit',
         year: '2-digit',
     });
 
+    const message = 
+        `${dateString}\n\n`+
+        "Department (leave those that apply)\n\n"+
+        '#founder #bd #cs #mkt #product\n\n'+
+        'What you have done:\n\n'+
+        'What you plan to do:\n\n'+
+        'What help you need:\n\n';
 
-    const message = `
-    ${dateString}
-Department (leave those that apply)
-#founder #bd #cs #mkt #product
+    const keyboard = {
+        reply_markup: {
+            inline_keyboard: [
+                [{ text: 'Copy', switch_inline_query_current_chat: message }]
+            ]
+        }
+    }
 
-**What you have done:**
-
-    
-**What you plan to do:**
-
-    
-**What help you need:**
-
-
-`;
-
-  ctx.reply(message, { parse_mode: 'Markdown' });
-})
-
-// Remind 
-
-bot.command('remind', (ctx) => {
-    const message = 'Reminder at 2PM';
-    const time = '2:00 PM'; // Set the time for the reminder message
-  
-    // Convert the time string to a date object
-    const date = new Date(`${new Date().toDateString()} ${time}`);
-  
-    // Calculate the number of milliseconds until the reminder time
-    const milliseconds = date.getTime() - Date.now();
-  
-    // Schedule the reminder message to be sent at the specified time
-    setInterval(() => {
-      ctx.telegram.sendMessage(ctx.chat.id, message);
-    }, milliseconds);
-  
-    ctx.reply(`Reminder set for ${time}.`);
-});
-
-// Date
-bot.command('date', async (ctx) => {
-    let date = new Date(ctx.message.date * 1000);
-
-    // Using context shortcut
-    await ctx.reply(`The date is ${date}`);
-})
-
-bot.on('inline_query', async (ctx) => {
-    const result = [];
-    console.log(ctx.inlineQuery.id)
-    // Explicit usage
-    await ctx.telegram.answerInlineQuery(ctx.inlineQuery.id, result);
-  
-    // Using context shortcut
-    await ctx.answerInlineQuery(result);
-});
-
-// Commands list
-
-bot.command('help', async (ctx) => {
-    await ctx.reply("Here are the list of commands, \n /date \n /username \n /start \n /quit"); 
-})
-
-// Some inline commands
-
-bot.command('inline', (ctx) => {
-    return ctx.reply('<b>Coke</b> or <i>Pepsi?</i>', {
-        parse_mode: 'HTML',
-        ...Markup.inlineKeyboard([
-            Markup.button.callback('Coke', 'Coke'),
-            Markup.button.callback('Pepsi', 'Pepsi')
-      ])
+    // Make a GET request to the Zen Quotes API to get a random quote
+    await axios.get('https://zenquotes.io/api/random')
+        .then(async (response) => {
+        // Send the quote text as a message to the Telegram chat
+            const quote = response.data[0].q
+            const author = response.data[0].a
+            const dailyMessage = 
+                "Morning folks! Here's the quote of the day!\n\n"+
+                `"${quote}"\n\n`+
+                `- ${author}\n\n`;
+            await bot.telegram.sendMessage(scheduleGroup, dailyMessage);
     })
-})
+        .catch(error => {
+            console.error(error);
+    });
 
-bot.command('random', (ctx) => {
-    return ctx.reply(
-        'random example',
-        Markup.inlineKeyboard([
-            Markup.button.callback('Coke', 'Coke'),
-            Markup.button.callback('Dr Pepper', 'Dr Pepper', Math.random() > 0.5),
-            Markup.button.callback('Pepsi', 'Pepsi')
-        ])
-    )
-})
+    bot.telegram.sendMessage(scheduleGroup, message, keyboard)
+        .then((message) => {
+        console.log(`Message sent: ${message.message_id}`);
+    })
+        .catch((error) => {
+            console.error(error);
+    })
 
-bot.command('simple', (ctx) => {
-    return ctx.replyWithHTML(
-      '<b>Coke</b> or <i>Pepsi?</i>',
-      Markup.keyboard(['Coke', 'Pepsi'])
-    )
-})
+    tempCheck = true;
+
+}, null, true, 'Asia/Manila');
+
+job.start();
+
+// ADDITIONAL COMMANDS
+
+// ALIVE
+const responses = JSON.parse(fs.readFileSync('responses.json', 'utf8'));
+// Event handler for when the bot receives a message containing the trigger phrase "are you still alive?"
+bot.hears('Are you still alive?', ctx => {
+    const response = responses[Math.floor(Math.random() * responses.length)];
+    ctx.reply(response);
+});
 
 
+// NEXT SCHEDULE COMMAND 
+bot.hears('Next schedule', async ctx => {
+    // Get the time of the next scheduled execution of the cron job
+    const nextInvocation = job.nextDate();
+  
+    // Calculate the time difference between the current time and the next scheduled execution
+    const timeDifference = nextInvocation - Date.now();
+  
+    // Calculate the number of hours remaining
+    const hoursRemaining = Math.floor(timeDifference / (1000 * 60 * 60));
+  
+    // Calculate the number of minutes remaining
+    const minutesRemaining = Math.floor((timeDifference % (1000 * 60 * 60)) / (1000 * 60));
+  
+    // Send a message with the time remaining
+    await ctx.reply(`There are ${hoursRemaining} hours and ${minutesRemaining} minutes remaining until the next schedule.`);
+});
+  
 bot.launch();
+
 
 // Enable graceful stop
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
-
-
-
